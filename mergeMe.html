@@ -1,0 +1,1526 @@
+<!-- MIT License
+
+Copyright (c) 2025 ConvergeOne, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE. -->
+
+
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Merge Calls (Genesys Cloud)</title>
+
+  <!-- Bootstrap is optional; it provides nice defaults for tables/buttons. -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    /* =========================================================
+       UVA Health-inspired (clean + clinical)
+       - Light background
+       - Navy primary + orange accent
+       - Soft borders, subtle shadows
+       ========================================================= */
+
+    :root{
+      /* Approximate UVA palette */
+      --uva-navy: #232D4B;
+      --uva-orange: #E57200;
+      --uva-sky: #EEF3F9;
+
+      /* Neutrals */
+      --bg: #F7F9FC;
+      --surface: #FFFFFF;
+      --text: #111827;
+      --muted: #6B7280;
+      --border: #E5E7EB;
+
+      --shadow-sm: 0 1px 2px rgba(17,24,39,0.06);
+      --shadow-md: 0 10px 25px rgba(17,24,39,0.08);
+      --radius: 16px;
+    }
+
+    html, body { height: 100%; }
+
+    body.app-shell{
+      background:
+        radial-gradient(1200px 600px at 15% 0%, rgba(229,114,0,0.08), transparent 60%),
+        radial-gradient(900px 600px at 95% 10%, rgba(35,45,75,0.10), transparent 55%),
+        linear-gradient(180deg, var(--bg), var(--uva-sky));
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    /* Header / top bar */
+    .topbar{
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 0;
+    }
+
+    .brand-dot{
+      width: 14px; height: 14px; border-radius: 999px;
+      background: linear-gradient(135deg, var(--uva-orange), var(--uva-navy));
+      box-shadow: 0 0 0 6px rgba(229,114,0,0.12);
+    }
+
+    .brand-title{
+      font-weight: 750;
+      letter-spacing: 0.2px;
+      color: var(--uva-navy);
+      line-height: 1.1;
+    }
+
+    .brand-sub{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Cards */
+    .glass{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* Generic muted text */
+    .muted{ color: var(--muted); }
+
+    /* Status pill */
+    .status-pill{
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(35,45,75,0.06);
+      border: 1px solid rgba(35,45,75,0.14);
+      width: fit-content;
+      color: var(--uva-navy);
+      font-weight: 600;
+    }
+
+    /* Banner (non-blocking alerts) */
+    .banner{
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      background: rgba(255,255,255,0.92);
+    }
+
+    .banner-left{ display: flex; gap: 10px; }
+    .banner-icon{
+      width: 22px; height: 22px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 12px;
+      flex: 0 0 auto;
+      margin-top: 1px;
+    }
+
+    .banner-title{ font-weight: 750; color: var(--uva-navy); line-height: 1.2; }
+    .banner-msg{ color: var(--muted); font-size: 13px; }
+
+    .banner-actions{ display: flex; gap: 8px; flex: 0 0 auto; }
+
+    .banner.info{ border-color: rgba(35,45,75,0.18); background: rgba(35,45,75,0.04); }
+    .banner.info .banner-icon{ background: rgba(35,45,75,0.10); color: var(--uva-navy); }
+
+    .banner.warn{ border-color: rgba(229,114,0,0.28); background: rgba(229,114,0,0.08); }
+    .banner.warn .banner-icon{ background: rgba(229,114,0,0.18); color: #8A3E00; }
+
+    .banner.error{ border-color: rgba(220,38,38,0.25); background: rgba(220,38,38,0.06); }
+    .banner.error .banner-icon{ background: rgba(220,38,38,0.14); color: #991B1B; }
+
+    /* Expand mode: make call list full-width and move merge panel below */
+    body.calls-expanded .calls-col{ width: 100% !important; flex: 0 0 100% !important; max-width: 100% !important; }
+    body.calls-expanded .merge-col{ width: 100% !important; flex: 0 0 100% !important; max-width: 100% !important; }
+
+    /* Hide expand/collapse when space is already constrained */
+    body.narrow-space #expandCallsBtn{ display: none; }
+
+    /* Empty state */
+    .empty-state{
+      margin-top: 16px;
+      padding: 18px;
+      border-radius: calc(var(--radius) - 2px);
+      border: 1px dashed rgba(35,45,75,0.25);
+      background: rgba(255,255,255,0.65);
+    }
+
+    .empty-title{
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--uva-navy);
+    }
+
+    /* Chips */
+    .chip-wrap{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.9);
+      font-size: 13px;
+      color: var(--uva-navy);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .chip .dot{
+      width: 9px; height: 9px;
+      border-radius: 999px;
+      background: var(--uva-orange);
+      box-shadow: 0 0 0 4px rgba(229,114,0,0.14);
+    }
+
+    /* Table */
+    .table{
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text);
+    }
+
+    .table thead th{
+      color: var(--uva-navy);
+      font-weight: 700;
+      border-bottom-color: var(--border);
+      background: rgba(35,45,75,0.04);
+    }
+
+    .table tbody td{
+      border-top-color: var(--border);
+      color: var(--text);
+    }
+
+    .table-hover tbody tr:hover{
+      background: rgba(229,114,0,0.06);
+    }
+
+    /* Inputs */
+    .form-select, .form-control{
+      border-radius: 12px;
+      border-color: var(--border);
+    }
+
+    .form-check-input{
+      border-color: rgba(35,45,75,0.35);
+    }
+    .form-check-input:checked{
+      background-color: var(--uva-navy);
+      border-color: var(--uva-navy);
+    }
+
+    /* Buttons */
+    .btn{
+      border-radius: 12px;
+      font-weight: 650;
+    }
+
+    .btn-outline-light{
+      color: var(--uva-navy);
+      border-color: rgba(35,45,75,0.28);
+      background: rgba(255,255,255,0.75);
+    }
+    .btn-outline-light:hover{
+      background: rgba(35,45,75,0.06);
+      border-color: rgba(35,45,75,0.40);
+      color: var(--uva-navy);
+    }
+
+    .btn-outline-danger{
+      border-color: rgba(220,38,38,0.35);
+      color: #B91C1C;
+      background: rgba(255,255,255,0.75);
+    }
+
+    .btn-outline-danger:hover{
+      background: rgba(220,38,38,0.08);
+      border-color: rgba(220,38,38,0.55);
+      color: #991B1B;
+    }
+
+    .btn-primary{
+      background: var(--uva-navy);
+      border: none;
+      box-shadow: 0 10px 20px rgba(35,45,75,0.18);
+    }
+
+    .btn-primary:hover{
+      background: #1C2540;
+    }
+
+    .btn-primary:focus{
+      box-shadow: 0 0 0 0.25rem rgba(229,114,0,0.25);
+    }
+
+    .btn-primary:disabled{
+      opacity: 0.50;
+      box-shadow: none;
+    }
+
+    /* Direction badges */
+    .badge-dir{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      background: #fff;
+      color: var(--uva-navy);
+      white-space: nowrap;
+    }
+
+    /* Compact: single-letter direction pill */
+    .badge-dir.badge-mini{ padding: 4px 8px; font-size: 12px; }
+
+    .badge-dir .dot{
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--uva-orange);
+    }
+
+    .badge-dir .dot{
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--uva-orange);
+    }
+
+    .badge-inbound{
+      border-color: rgba(35,45,75,0.18);
+      background: rgba(35,45,75,0.04);
+    }
+
+    .badge-outbound{
+      border-color: rgba(229,114,0,0.22);
+      background: rgba(229,114,0,0.06);
+    }
+
+    a{
+      color: var(--uva-navy);
+      text-decoration-color: rgba(35,45,75,0.35);
+    }
+    a:hover{
+      color: #1C2540;
+      text-decoration-color: rgba(229,114,0,0.65);
+    }
+
+    /* =========================================================
+       Compact layout tuning
+       - Keeps the look, reduces vertical whitespace
+       ========================================================= */
+
+    /* Slightly tighter header */
+    .topbar{ padding: 10px 0; }
+
+    /* Tighter cards */
+    .card-body{ padding: 14px; }
+
+    /* Headings tighter */
+    h5{ margin-bottom: 6px; }
+
+    /* Tighter status pill */
+    .status-pill{ padding: 6px 10px; font-size: 13px; }
+
+    /* Tighter controls */
+    .form-select.form-select-sm{ padding-top: 4px; padding-bottom: 4px; }
+    .btn.btn-sm{ padding: 6px 10px; }
+
+    /* Tighter table rows */
+    .table > :not(caption) > * > *{ padding-top: 10px; padding-bottom: 10px; }
+
+    /* Prevent call labels from wrapping into tall rows; use ellipsis instead */
+    .call-primary{
+      max-width: 360px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+    }
+    .call-secondary{
+      max-width: 360px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+    }
+
+    /* Column visibility (we'll toggle via body classes + breakpoints) */
+    th.col-direction, td.col-direction,
+    th.col-started, td.col-started{ white-space: nowrap; }
+
+    /* Small narrow space mode: hide Direction + Started; keep Call + State */
+    body.narrow-space th.col-direction,
+    body.narrow-space td.col-direction,
+    body.narrow-space th.col-started,
+    body.narrow-space td.col-started{ display: none; }
+
+    /* Small narrow space mode: tighten padding a bit */
+    body.narrow-space .table > :not(caption) > * > *{ padding-top: 8px; padding-bottom: 8px; }
+
+    @media (max-width: 900px){
+      .card-body{ padding: 12px; }
+      .table > :not(caption) > * > *{ padding-top: 8px; padding-bottom: 8px; }
+      .btn.btn-lg{ padding: 10px 14px; font-size: 16px; }
+      .muted{ font-size: 13px; }
+    }
+
+    /* =========================================================
+       App width control (keeps UI from feeling too wide)
+       ========================================================= */
+    .app-container{
+      max-width: 1100px;   /* sweet spot for operator tools */
+      margin: 0 auto;      /* center horizontally */
+    }
+
+    @media (max-width: 1200px){
+      .app-container{ max-width: 100%; }
+    }
+  </style>
+</head>
+
+<body class="app-shell">
+  <header class="topbar">
+    <div class="container-fluid d-flex align-items-center justify-content-between gap-3">
+      <div class="d-flex align-items-center gap-2">
+        <div class="brand-dot"></div>
+        <div>
+          <div class="brand-title">Merge Calls</div>
+          <div id="envLine" class="brand-sub">Genesys Cloud</div>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        <button id="refreshBtn" class="btn btn-sm btn-outline-light">Refresh</button>
+        <button id="logoutBtn" class="btn btn-sm btn-outline-danger">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container-fluid py-3">
+    <div class="app-container">
+    <div class="row g-3">
+      <!-- Left: call list -->
+      <div class="col-12 col-xl-7 calls-col">
+        <div class="card glass h-100">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+              <div id="bannerHost" class="w-100 d-none"></div>
+              <div>
+                <h5 class="mb-0">Active Calls</h5>
+                <div class="muted">Select 2+ calls to merge into a conference.</div>
+              </div>
+
+              <div class="d-flex align-items-center gap-2">
+                <button id="expandCallsBtn" class="btn btn-sm btn-outline-light" type="button">Expand</button>
+                <div class="form-check form-switch m-0">
+                  <input class="form-check-input" type="checkbox" role="switch" id="autoRefresh" checked>
+                  <label class="form-check-label muted" for="autoRefresh">Auto-refresh</label>
+                </div>
+                <select id="refreshInterval" class="form-select form-select-sm w-auto">
+                  <option value="3000" selected>3s</option>
+                  <option value="5000">5s</option>
+                  <option value="10000">10s</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Status pill shows initializing/loading/errors (we removed "Loaded X calls") -->
+            <div id="status" class="status-pill mb-3">Initializing…</div>
+
+            <div class="table-responsive">
+              <table class="table align-middle table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th style="width:44px;"></th>
+                    <th>Call</th>
+                    <th class="col-direction" style="width:120px;">Direction</th>
+                    <th>State</th>
+                    <th class="col-started">Started</th>
+                  </tr>
+                </thead>
+                <tbody id="callsTbody"></tbody>
+              </table>
+            </div>
+
+            <div id="emptyState" class="empty-state d-none">
+              <div class="empty-title">No active calls found</div>
+              <div class="muted">If you expected calls here, confirm the logged-in user is an active participant.</div>
+            </div>
+
+            <div id="authHint" class="mt-3 muted small"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: merge panel -->
+      <div class="col-12 col-xl-5 merge-col">
+        <div class="card glass">
+          <div class="card-body">
+            <h5 class="mb-1">Merge to Conference</h5>
+            <div class="muted mb-3">
+              Choose a “target” call (the conference anchor), then merge the others into it.
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label muted">Target call</label>
+              <select id="targetSelect" class="form-select">
+                <option value="">Select calls…</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label muted">Selected calls</label>
+              <div id="selectedChips" class="chip-wrap"></div>
+            </div>
+
+            <!-- TIP removed per request -->
+            <div class="d-grid gap-2">
+              <button id="mergeBtn" class="btn btn-primary btn-lg" disabled>
+                Merge selected calls
+              </button>
+            </div>
+
+            <hr class="my-4">
+            <div id="actionResult" class="mt-3"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+      </div>
+  </main>
+
+<script>
+/**
+ * ============================================================
+ *  MVP: Standalone browser app
+ * ============================================================
+ * - No Node/Flask needed.
+ * - Uses OAuth 2.0 Authorization Code + PKCE (no client secret in browser).
+ * - Calls Genesys Cloud APIs directly with a Bearer token.
+ *
+ * IMPORTANT:
+ * - This page MUST be served over http(s) (not file://).
+ * - The redirect URI registered in Genesys must match the page URL exactly.
+ */
+
+// ============================
+// CONFIG (edit these values)
+// ============================
+const CONFIG = {
+  clientId: "YOUR_OAUTH_CLIENT_ID",
+  environment: "usw2.pure.cloud",
+  scope: "" // optional
+};
+
+// sessionStorage keys
+const STORAGE = {
+  token: "gc_token",
+  tokenExpiresAt: "gc_token_expires_at",
+  pkceVerifier: "gc_pkce_verifier",
+  oauthState: "gc_oauth_state"
+};
+
+// Genesys endpoints for your region
+const loginBase = () => `https://login.${CONFIG.environment}`;
+const apiBase = () => `https://api.${CONFIG.environment}`;
+
+// Redirect URI = this page URL (origin + path)
+const redirectUri = () => window.location.origin + window.location.pathname;
+
+const el = (id) => document.getElementById(id);
+
+let calls = [];
+let selectedIds = new Set();
+let refreshTimer = null;
+
+// Prevent multiple simultaneous auth redirects
+let authRedirectInProgress = false;
+
+// Layout mode: 'full' | 'narrow'
+window.__layoutMode = "full";
+
+// Banner state
+let bannerTimeout = null;
+
+function setStatus(text) { el("status").textContent = text; }
+function setAuthHint(text) { el("authHint").textContent = text || ""; }
+
+/**
+ * Non-blocking banner
+ * - Shows transient errors/warnings without clearing the table
+ * - Can be dismissed; optional Retry button
+ */
+function showBanner({ type = "info", title = "", message = "", showRetry = false, autoHideMs = 0 } = {}) {
+  const host = el("bannerHost");
+  if (!host) return;
+
+  if (bannerTimeout) {
+    clearTimeout(bannerTimeout);
+    bannerTimeout = null;
+  }
+
+  host.classList.remove("d-none");
+
+  const iconText = type === "error" ? "!" : (type === "warn" ? "!" : "i");
+
+  host.innerHTML = `
+    <div class="banner ${type}">
+      <div class="banner-left">
+        <div class="banner-icon">${iconText}</div>
+        <div>
+          <div class="banner-title">${title}</div>
+          ${message ? `<div class="banner-msg">${message}</div>` : ""}
+        </div>
+      </div>
+      <div class="banner-actions">
+        ${showRetry ? `<button id="bannerRetry" class="btn btn-sm btn-outline-light" type="button">Retry</button>` : ""}
+        <button id="bannerDismiss" class="btn btn-sm btn-outline-light" type="button">Dismiss</button>
+      </div>
+    </div>
+  `;
+
+  const dismiss = () => {
+    host.classList.add("d-none");
+    host.innerHTML = "";
+  };
+
+  const dBtn = document.getElementById("bannerDismiss");
+  if (dBtn) dBtn.addEventListener("click", dismiss);
+
+  const rBtn = document.getElementById("bannerRetry");
+  if (rBtn) rBtn.addEventListener("click", () => {
+    dismiss();
+    loadConversations();
+  });
+
+  if (autoHideMs && autoHideMs > 0) {
+    bannerTimeout = setTimeout(dismiss, autoHideMs);
+  }
+}
+
+function hideBanner() {
+  const host = el("bannerHost");
+  if (!host) return;
+  host.classList.add("d-none");
+  host.innerHTML = "";
+}
+
+// Expand button visibility helper
+function updateExpandButtonVisibility() {
+  const btn = el("expandCallsBtn");
+  if (!btn) return;
+
+  // If we are expanded but can no longer justify it (or we're now in narrow mode), auto-collapse.
+  const isExpanded = document.body.classList.contains("calls-expanded");
+  const isNarrow = document.body.classList.contains("narrow-space");
+  const enoughCalls = calls.length >= 3;
+
+  if (isExpanded && (isNarrow || !enoughCalls)) {
+    document.body.classList.remove("calls-expanded");
+    btn.textContent = "Expand";
+  }
+
+  // Show only when useful (3+ calls) and not in narrow mode
+  const shouldShow = enoughCalls && !isNarrow;
+  btn.style.display = shouldShow ? "" : "none";
+}
+
+// ============================
+// PKCE helpers
+// ============================
+
+// Base64-url encode (no +, /, =). PKCE requires URL-safe base64.
+function base64UrlEncode(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+// Cryptographically random string for verifier/state
+function randomString(length = 64) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return base64UrlEncode(bytes.buffer);
+}
+
+// SHA-256 hash using WebCrypto
+async function sha256(input) {
+  const enc = new TextEncoder();
+  return crypto.subtle.digest("SHA-256", enc.encode(input));
+}
+
+// PKCE challenge = BASE64URL(SHA256(verifier))
+async function createPkceChallenge(verifier) {
+  const hashed = await sha256(verifier);
+  return base64UrlEncode(hashed);
+}
+
+function saveToken(tokenJson) {
+  const expiresIn = Number(tokenJson.expires_in || 0);
+  const expiresAt = Date.now() + (expiresIn * 1000);
+  sessionStorage.setItem(STORAGE.token, tokenJson.access_token);
+  sessionStorage.setItem(STORAGE.tokenExpiresAt, String(expiresAt));
+}
+
+function clearAuth() {
+  sessionStorage.removeItem(STORAGE.token);
+  sessionStorage.removeItem(STORAGE.tokenExpiresAt);
+  sessionStorage.removeItem(STORAGE.pkceVerifier);
+  sessionStorage.removeItem(STORAGE.oauthState);
+}
+
+function getToken() {
+  const tok = sessionStorage.getItem(STORAGE.token);
+  const exp = Number(sessionStorage.getItem(STORAGE.tokenExpiresAt) || "0");
+  if (!tok) return null;
+  // 30s skew
+  if (Date.now() > (exp - 30000)) return null;
+  return tok;
+}
+
+function buildAuthorizeUrl(codeChallenge, state) {
+  const u = new URL(`${loginBase()}/oauth/authorize`);
+  u.searchParams.set("response_type", "code");
+  u.searchParams.set("client_id", CONFIG.clientId);
+  u.searchParams.set("redirect_uri", redirectUri());
+  u.searchParams.set("code_challenge_method", "S256");
+  u.searchParams.set("code_challenge", codeChallenge);
+  u.searchParams.set("state", state);
+  if (CONFIG.scope) u.searchParams.set("scope", CONFIG.scope);
+  return u.toString();
+}
+
+async function startLogin() {
+  if (!CONFIG.clientId || CONFIG.clientId === "YOUR_OAUTH_CLIENT_ID") {
+    setStatus("Configuration required");
+    setAuthHint("Edit CONFIG.clientId in app.js.");
+    return;
+  }
+
+  // (1) Generate the PKCE verifier (secret, stays in browser)
+  const verifier = randomString(64);
+
+  // (2) Create the challenge from the verifier (safe to send to authorize endpoint)
+  const challenge = await createPkceChallenge(verifier);
+
+  // (3) State is CSRF protection. We validate it on callback.
+  const state = randomString(24);
+
+  // Store verifier/state so we can redeem the code after redirect
+  sessionStorage.setItem(STORAGE.pkceVerifier, verifier);
+  sessionStorage.setItem(STORAGE.oauthState, state);
+
+  // Redirect user to Genesys login
+  window.location.assign(buildAuthorizeUrl(challenge, state));
+}
+
+async function exchangeCodeForToken(code) {
+  const verifier = sessionStorage.getItem(STORAGE.pkceVerifier);
+  const expectedState = sessionStorage.getItem(STORAGE.oauthState);
+
+  const url = new URL(window.location.href);
+  const state = url.searchParams.get("state");
+
+  // Validate state for CSRF protection
+  if (!state || !expectedState || state !== expectedState) {
+    throw new Error("Invalid OAuth state (possible CSRF or stale session). ");
+  }
+
+  if (!verifier) {
+    throw new Error("Missing PKCE verifier (sessionStorage cleared?).");
+  }
+
+  // Exchange the authorization code for an access token.
+  // No client secret needed because we send the code_verifier.
+  const body = new URLSearchParams();
+  body.set("grant_type", "authorization_code");
+  body.set("client_id", CONFIG.clientId);
+  body.set("code", code);
+  body.set("redirect_uri", redirectUri());
+  body.set("code_verifier", verifier);
+
+  const resp = await fetch(`${loginBase()}/oauth/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Token exchange failed: ${resp.status} ${await resp.text()}`);
+  }
+
+  saveToken(await resp.json());
+
+  // Clean URL so the code/state aren’t left in the address bar
+  url.searchParams.delete("code");
+  url.searchParams.delete("state");
+  url.searchParams.delete("error");
+  window.history.replaceState({}, document.title, url.toString());
+
+  // Cleanup verifier/state after success
+  sessionStorage.removeItem(STORAGE.pkceVerifier);
+  sessionStorage.removeItem(STORAGE.oauthState);
+}
+
+/**
+ * Redirects the user back through the Genesys OAuth (PKCE) flow.
+ *
+ * IMPORTANT UX NOTE (intentional behavior):
+ * ------------------------------------------------------------
+ * In environments with active Genesys SSO sessions, this redirect
+ * often completes extremely fast (sometimes < 200ms).
+ *
+ * What users may observe:
+ *  - A brief "Session expired / Re-authenticating" banner flash
+ *  - Then the app immediately resumes working
+ *
+ * This is EXPECTED and DESIRED behavior:
+ *  - The access token expired
+ *  - Genesys still has a valid SSO session
+ *  - Genesys silently re-authenticates the user
+ *  - A new access token is issued via PKCE
+ *
+ * We intentionally show the banner before redirecting so:
+ *  - Slow networks or login prompts are explained
+ *  - Failures are visible instead of "mysterious pauses"
+ */
+async function redirectToGenesysLogin(reason = "") {
+  if (authRedirectInProgress) return;
+  authRedirectInProgress = true;
+
+  try { stopAutoRefresh(); } catch {}
+
+  // IMPORTANT: do NOT clear the token before we display messaging.
+  // Clearing first can cause other code paths to show “Authentication required”
+  // and overwrite our UX.
+
+  setStatus("Re-authenticating…");
+  showBanner({
+    type: "info",
+    title: "Session expired",
+    message: reason || "Redirecting to Genesys sign-in…",
+    showRetry: false
+  });
+
+  // Let the browser paint the banner before we navigate.
+  await new Promise(requestAnimationFrame);
+
+  // Now clear auth and navigate.
+  clearAuth();
+
+  setTimeout(() => {
+    // Fire-and-forget; startLogin will navigate away.
+    startLogin();
+  }, 450);
+}
+
+async function apiFetch(path, { method = "GET", body = null } = {}) {
+  const token = getToken();
+  if (!token) {
+    await redirectToGenesysLogin("Your session ended. Redirecting to Genesys sign-in…");
+    const err = new Error("AUTH_REDIRECT");
+    err.isAuthRedirect = true;
+    throw err;
+  }
+
+  const resp = await fetch(`${apiBase()}${path}`, {
+    method,
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      ...(body ? { "Content-Type": "application/json" } : {})
+    },
+    body: body ? JSON.stringify(body) : null
+  });
+
+  // If Genesys says the token is invalid/expired, redirect back through OAuth.
+  if (resp.status === 401) {
+    await redirectToGenesysLogin("Genesys access token expired. Redirecting to sign-in…");
+    const err = new Error("AUTH_REDIRECT");
+    err.isAuthRedirect = true;
+    throw err;
+  }
+
+  if (!resp.ok) {
+    throw new Error(`${method} ${path} failed: ${resp.status} ${await resp.text()}`);
+  }
+
+  const text = await resp.text();
+  return text ? JSON.parse(text) : { ok: true };
+}
+
+// ============================
+// Calls parsing
+// ============================
+
+// We only want calls that are safe to merge.
+// "connected" is the safest default (prevents selecting alerting/dialing/hold/etc.).
+function isActiveCallState(state) {
+  const s = (state || "").toLowerCase();
+  return s === "connected";
+}
+
+function stripScheme(addr) {
+  if (!addr) return "";
+  return String(addr).replace(/^tel:/i, "").replace(/^sip:/i, "");
+}
+
+// For display, keep just the phone number portion when possible.
+function cleanAniForDisplay(raw) {
+  if (!raw) return "";
+  let s = String(raw).trim();
+  s = stripScheme(s);
+  if (s.includes("@")) s = s.split("@")[0];
+  if (s.includes(";")) s = s.split(";")[0];
+  return s.trim();
+}
+
+function normalizePhone(num) {
+  if (!num) return "";
+  const s = stripScheme(num).trim();
+  const plus = s.startsWith("+") ? "+" : "";
+  const digits = s.replace(/[^\d]/g, "");
+  return plus + digits;
+}
+
+function formatPhonePretty(num) {
+  const cleaned = cleanAniForDisplay(num);
+  const raw = cleaned || stripScheme(num);
+  const n = normalizePhone(cleaned || num);
+  const digits = n.replace(/^\+/, "");
+  if (digits.length === 10) return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `(${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}`;
+  return raw || num;
+}
+
+function pickCustomerNameFromAttributes(attrs) {
+  if (!attrs || typeof attrs !== "object") return "";
+  const keys = [
+    "customerName","CustomerName","customer_name",
+    "contactName","ContactName",
+    "displayName","DisplayName",
+    "name","Name"
+  ];
+  for (const k of keys) {
+    const v = attrs[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+function getParticipantActiveState(participant) {
+  if (!participant) return "unknown";
+
+  const callsArr = Array.isArray(participant.calls) ? participant.calls : [];
+  if (callsArr.length) {
+    const active = callsArr.find(c => isActiveCallState(c.state));
+    if (active?.state) return active.state;
+
+    const withTime = callsArr
+      .filter(c => c.connectedTime)
+      .sort((a, b) => new Date(b.connectedTime) - new Date(a.connectedTime));
+
+    return withTime[0]?.state || callsArr[0]?.state || participant.state || "unknown";
+  }
+
+  return participant.state || "unknown";
+}
+
+function getRemotePartyInfo({ agent, customer }) {
+  const direction = (agent?.direction || customer?.direction || "").toLowerCase();
+
+  // Shape A: agent.calls[].other provides the “remote party” nicely
+  const agentCalls = Array.isArray(agent?.calls) ? agent.calls : [];
+  if (agentCalls.length) {
+    const active = agentCalls.find(c => isActiveCallState(c.state)) || agentCalls[0];
+
+    const remoteName =
+      (active?.other?.nameRaw && active.other.nameRaw.trim()) ||
+      (active?.other?.name && active.other.name.trim()) ||
+      "";
+
+    const remoteAddr =
+      active?.other?.addressNormalized ||
+      active?.other?.addressRaw ||
+      "";
+
+    if (remoteName || remoteAddr) {
+      return { direction, name: remoteName, ani: remoteAddr };
+    }
+  }
+
+  // Shape B: use customer participant (fixes inbound caller display)
+  // Prefer a TEL address when available; fall back to ANI.
+  // This avoids displaying SIP-style values like "+1952...@10.x.x.x;user=phone".
+  const customerAni = customer?.address || customer?.ani || "";
+
+  const customerName =
+    (typeof customer?.name === "string" ? customer.name.trim() : "") ||
+    pickCustomerNameFromAttributes(customer?.attributes) ||
+    "";
+
+  return { direction, name: customerName, ani: customerAni };
+}
+
+function parseCallsFromConversations(payload) {
+  const entities = payload?.entities || [];
+  const out = [];
+
+  for (const conv of entities) {
+    const convId = conv.id;
+    if (!convId) continue;
+
+    const participants = Array.isArray(conv.participants) ? conv.participants : [];
+
+    const agent = participants.find(p => (p.purpose || "").toLowerCase() === "agent") || null;
+
+    const customer =
+      participants.find(p => (p.purpose || "").toLowerCase() === "customer") ||
+      participants.find(p => (p.participantType || "").toLowerCase() === "external") ||
+      null;
+
+    const agentState = getParticipantActiveState(agent);
+    const state = agentState !== "unknown" ? agentState : getParticipantActiveState(customer);
+
+    if (!isActiveCallState(state)) continue;
+
+    const { direction, name, ani } = getRemotePartyInfo({ agent, customer });
+
+    const aniPretty = ani ? formatPhonePretty(ani) : "";
+    const labelParts = [];
+    if (aniPretty) labelParts.push(aniPretty);
+    if (name) labelParts.push(name);
+
+    const displayLabel = labelParts.join(" · ") || "Voice call";
+
+    const startTime = conv.startTime || agent?.startTime || customer?.startTime || "";
+
+    const callsCount =
+      (Array.isArray(conv.calls) ? conv.calls.length : 0) ||
+      (Array.isArray(agent?.calls) ? agent.calls.length : 0) ||
+      1;
+
+    out.push({
+      id: convId,
+      state,
+      startTime,
+      callsCount,
+      displayLabel,
+      direction
+    });
+  }
+
+  return out;
+}
+
+// ============================
+// UI helpers
+// ============================
+
+function fmtTime(iso) {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+}
+
+// State abbreviation for narrow spaces.
+function abbreviateState(state) {
+  const s = String(state || "").toLowerCase();
+  if (s.startsWith("conn")) return "C";
+  if (s.startsWith("aler")) return "A";
+  if (s.startsWith("dial") || s.startsWith("cont")) return "D";
+  if (s.startsWith("hold")) return "H";
+  if (s.startsWith("park")) return "P";
+  if (s.startsWith("term")) return "T";
+  return (state && String(state).trim()) ? String(state).trim().slice(0,1).toUpperCase() : "—";
+}
+
+function renderTable() {
+  const tbody = el("callsTbody");
+  tbody.innerHTML = "";
+
+  const empty = el("emptyState");
+  if (!calls.length) {
+    empty.classList.remove("d-none");
+    return;
+  }
+  empty.classList.add("d-none");
+
+  for (const c of calls) {
+    const tr = document.createElement("tr");
+
+    // Checkbox
+    const tdCheck = document.createElement("td");
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.className = "form-check-input";
+    chk.checked = selectedIds.has(c.id);
+    chk.addEventListener("change", () => {
+      chk.checked ? selectedIds.add(c.id) : selectedIds.delete(c.id);
+      syncRightPanel();
+    });
+    tdCheck.appendChild(chk);
+
+    // Call label
+    const tdConv = document.createElement("td");
+
+    const shortId = c.id && c.id.length > 8 ? `${c.id.slice(0, 8)}…` : (c.id || "");
+    const tooltip = `${c.displayLabel}\nID: ${c.id}\nLegs: ${c.callsCount}\nState: ${c.state}${c.direction ? `\nDirection: ${c.direction}` : ""}`;
+
+    // In narrow mode, split label into multiple focused lines:
+    // Line 1: phone number
+    // Line 2: city / name
+    // Line 3: abbreviated ID
+    const isNarrow = window.__layoutMode === "narrow";
+    const label = c.displayLabel || "";
+    let phonePart = label;
+    let namePart = "";
+    if (label.includes(" · ")) {
+      const parts = label.split(" · ");
+      phonePart = parts[0] || "";
+      namePart = parts.slice(1).join(" · ");
+    }
+
+    if (isNarrow) {
+      tdConv.innerHTML = `
+        <div class="fw-semibold" title="${tooltip.replace(/"/g, "&quot;")}">${phonePart}</div>
+        ${namePart ? `<div class="muted small" title="${tooltip.replace(/"/g, "&quot;")}">${namePart}</div>` : ""}
+        <div class="muted small" title="${tooltip.replace(/"/g, "&quot;")}">${shortId}</div>
+      `;
+    } else {
+      tdConv.innerHTML = `
+        <div class="fw-semibold call-primary" title="${tooltip.replace(/"/g, "&quot;")}">${c.displayLabel}</div>
+        <div class="muted small call-secondary" title="${tooltip.replace(/"/g, "&quot;")}">${shortId}${c.callsCount > 1 ? ` · ${c.callsCount} legs` : ""}</div>
+      `;
+    }
+
+    // Direction badge
+    const dir = (c.direction || "").toLowerCase();
+    const dirLabel = dir === "inbound" ? "Inbound" : (dir === "outbound" ? "Outbound" : "—");
+
+    const tdDir = document.createElement("td");
+    tdDir.className = "col-direction";
+
+    if (dirLabel !== "—") {
+      tdDir.innerHTML = `
+        <span class="badge-dir ${dir === "inbound" ? "badge-inbound" : "badge-outbound"}">
+          <span class="dot"></span>${dirLabel}
+        </span>
+      `;
+    } else {
+      tdDir.textContent = "—";
+    }
+
+    // State: show single-letter abbreviation in narrow mode
+    const fullState = (c.state || "—");
+    const stateText = window.__layoutMode === "narrow" ? abbreviateState(fullState) : fullState;
+
+    const tdState = document.createElement("td");
+    tdState.title = fullState;
+    tdState.textContent = stateText;
+
+    const tdStart = document.createElement("td");
+    tdStart.className = "col-started";
+    tdStart.textContent = fmtTime(c.startTime);
+
+    tr.appendChild(tdCheck);
+    tr.appendChild(tdConv);
+    tr.appendChild(tdDir);
+    tr.appendChild(tdState);
+    tr.appendChild(tdStart);
+
+    tbody.appendChild(tr);
+  }
+}
+
+function syncRightPanel() {
+  const ids = Array.from(selectedIds);
+
+  // Helper: lookup a call object by id so we can show friendly labels
+  const byId = new Map(calls.map(c => [c.id, c]));
+
+  const targetSelect = el("targetSelect");
+  const current = targetSelect.value;
+
+  targetSelect.innerHTML = "";
+
+  if (!ids.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "Select calls on the left…";
+    targetSelect.appendChild(opt);
+  } else {
+    for (const id of ids) {
+      const call = byId.get(id);
+      const label = call?.displayLabel || id;
+      const shortId = id.length > 8 ? `${id.slice(0, 8)}…` : id;
+
+      const opt = document.createElement("option");
+      // value must remain the conversationId (API needs it)
+      opt.value = id;
+      opt.textContent = `${label} (${shortId})`;
+      opt.title = id;
+      targetSelect.appendChild(opt);
+    }
+  }
+
+  if (current && ids.includes(current)) targetSelect.value = current;
+
+  // Chips
+  const chips = el("selectedChips");
+  chips.innerHTML = "";
+
+  for (const id of ids) {
+    const call = byId.get(id);
+    const label = call?.displayLabel || id;
+
+    const div = document.createElement("div");
+    div.className = "chip";
+    div.title = id;
+    div.innerHTML = `<span class="dot"></span><span>${label}</span>`;
+    chips.appendChild(div);
+  }
+
+  el("mergeBtn").disabled = ids.length < 2;
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  if (!el("autoRefresh").checked) return;
+  const interval = parseInt(el("refreshInterval").value, 10) || 5000;
+  refreshTimer = setInterval(loadConversations, interval);
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = null;
+}
+
+function applyLayoutMode(mode) {
+  window.__layoutMode = mode;
+  if (mode === "narrow") {
+    document.body.classList.add("narrow-space");
+  } else {
+    document.body.classList.remove("narrow-space");
+  }
+
+  // Re-render so state abbreviations update immediately
+  try { renderTable(); } catch { /* ignore during early init */ }
+
+  // Re-check whether expand button should be visible
+  updateExpandButtonVisibility();
+}
+
+function installResizeWatcher() {
+  const container = document.querySelector(".app-container") || document.body;
+  const ro = new ResizeObserver((entries) => {
+    const w = entries?.[0]?.contentRect?.width || container.clientWidth || window.innerWidth;
+    applyLayoutMode(w < 520 ? "narrow" : "full");
+  });
+  ro.observe(container);
+}
+
+// ============================
+// API actions
+// ============================
+
+async function loadConversations() {
+  setStatus("Loading…");
+  try {
+    const payload = await apiFetch("/api/v2/conversations");
+
+    calls = parseCallsFromConversations(payload);
+
+    // Remove any selected calls that disappeared
+    const valid = new Set(calls.map(c => c.id));
+    selectedIds = new Set(Array.from(selectedIds).filter(id => valid.has(id)));
+
+    renderTable();
+    syncRightPanel();
+    updateExpandButtonVisibility();
+
+    hideBanner();
+    setStatus("Ready");
+  } catch (e) {
+    // If we're redirecting for auth, don't show refresh errors or empty states.
+    if (authRedirectInProgress || e?.isAuthRedirect) return;
+
+    console.error(e);
+
+    // Non-blocking banner: keep last known call list visible
+    showBanner({
+      type: "warn",
+      title: "Couldn't refresh calls",
+      message: (e && e.message) ? e.message : String(e),
+      showRetry: true,
+      autoHideMs: 10000
+    });
+
+    setStatus("Refresh failed");
+    setAuthHint("");
+  }
+}
+
+// After a merge, Genesys may place some legs on hold.
+// This helper attempts to force all participants in the conference to "connected".
+// It retries briefly because the conference participant list can take a moment to converge.
+// After a merge, Genesys may place some legs on hold.
+// This helper attempts to force all participants in the conference to "connected".
+// It retries briefly because the conference participant list can take a moment to converge.
+//
+// CONSOLE LOGGING:
+// For each affected participant we log:
+//  - phone number (best-effort)
+//  - beginning state
+//  - ending state
+async function ensureConferenceAllConnected(conversationId) {
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // Small backoff so the merge has time to attach participants.
+    await new Promise(r => setTimeout(r, attempt === 1 ? 600 : 900));
+
+    let conv;
+    try {
+      conv = await apiFetch(`/api/v2/conversations/calls/${conversationId}`);
+    } catch {
+      // Some orgs use /api/v2/conversations/{id}; try that as a fallback.
+      conv = await apiFetch(`/api/v2/conversations/${conversationId}`);
+    }
+
+    const participants = Array.isArray(conv?.participants) ? conv.participants : [];
+
+    // Pick participants that represent live legs and are not already connected.
+    // We avoid terminated legs and system legs (ivr/acd) when possible.
+    const candidates = participants.map(p => {
+      const purpose = String(p?.purpose || "").toLowerCase();
+      const state = String(p?.state || "").toLowerCase();
+      const activeState = String(getParticipantActiveState(p) || state).toLowerCase();
+
+      // Best-effort phone extraction for logging
+      const rawAddr = p?.address || p?.ani || "";
+      const phone = formatPhonePretty(rawAddr) || rawAddr || p?.id;
+
+      return { p, purpose, state, activeState, phone };
+    }).filter(x => {
+      if (x.state === "terminated" || x.state === "disconnected") return false;
+      if (x.purpose === "ivr" || x.purpose === "acd") return false;
+      return x.activeState === "hold" || x.activeState === "alerting" || x.activeState === "dialing" || x.activeState === "connected"  || x.activeState === "contacting";
+    });
+
+    if (!candidates.length) {
+      if (attempt === 1) {
+        console.log(`[ensureConferenceAllConnected] All participants already connected for ${conversationId}`);
+      }
+      return;
+    }
+
+    console.group(`[ensureConferenceAllConnected] Attempt ${attempt} for conversation ${conversationId}`);
+
+    for (const { p, phone, activeState } of candidates) {
+      console.log(`Participant ${phone}: state ${activeState} → connected (patching)`);
+
+      try {
+        await apiFetch(`/api/v2/conversations/calls/${conversationId}/participants/${p.id}`,
+          { method: "PATCH", body: { state: "connected" } }
+        );
+      } catch (e) {
+        console.warn(`Failed to patch participant ${phone} to connected`, e);
+      }
+    }
+
+    console.groupEnd();
+
+    // Loop again to confirm convergence
+  }
+
+  console.warn(`[ensureConferenceAllConnected] Max attempts reached for ${conversationId}`);
+}
+
+async function mergeSelected() {
+  const ids = Array.from(selectedIds);
+  const target = el("targetSelect").value || ids[0];
+  const others = ids.filter(x => x !== target);
+
+  el("mergeBtn").disabled = true;
+
+  showBanner({
+    type: "info",
+    title: "Merging calls",
+    message: "Requesting conference merge…",
+    showRetry: false
+  });
+
+  el("actionResult").innerHTML = `<div class="status-pill">Merging…</div>`;
+
+  try {
+    const body = { conversationIds: others };
+
+    try {
+      await apiFetch(`/api/v2/conversations/calls/${target}/conference`, { method: "PATCH", body });
+    } catch {
+      await apiFetch(`/api/v2/conversations/calls/${target}`, { method: "PATCH", body });
+    }
+
+    el("actionResult").innerHTML = `
+      <div class="alert alert-success mb-0">
+        <div class="fw-semibold">Conference merge requested</div>
+        <div class="small muted">Refreshing…</div>
+      </div>`;
+
+    showBanner({
+      type: "info",
+      title: "Merge requested",
+      message: "Ensuring all legs are connected…",
+      autoHideMs: 2500
+    });
+
+    try {
+      // After merging, force all live participants in the conference to connected.
+      await ensureConferenceAllConnected(target);
+    } catch (e) {
+      // Don't fail the whole UX if this step isn't allowed by permissions.
+      console.warn("ensureConferenceAllConnected failed", e);
+      showBanner({
+        type: "warn",
+        title: "Merge completed",
+        message: "Conference created, but not all legs could be forced to connected.",
+        autoHideMs: 6000
+      });
+    }
+
+    setTimeout(loadConversations, 900);
+  } catch (e) {
+    el("actionResult").innerHTML = `
+      <div class="alert alert-danger mb-0">
+        <div class="fw-semibold">Merge failed</div>
+        <div class="small">${e.message || String(e)}</div>
+      </div>`;
+
+    showBanner({
+      type: "error",
+      title: "Merge failed",
+      message: (e && e.message) ? e.message : String(e),
+      showRetry: false
+    });
+
+    el("mergeBtn").disabled = false;
+  }
+}
+
+// ============================
+// App init
+// ============================
+
+async function init() {
+  installResizeWatcher();
+  el("envLine").textContent = `Genesys Cloud · ${CONFIG.environment}`;
+
+  el("refreshBtn").addEventListener("click", loadConversations);
+
+  // Expand/collapse Active Calls section (operator focus)
+  el("expandCallsBtn")?.addEventListener("click", () => {
+    const expanded = document.body.classList.toggle("calls-expanded");
+    const btn = el("expandCallsBtn");
+    if (btn) btn.textContent = expanded ? "Collapse" : "Expand";
+
+    // Re-evaluate button eligibility and layout
+    updateExpandButtonVisibility();
+  });
+
+  el("mergeBtn").addEventListener("click", mergeSelected);
+
+  el("logoutBtn").addEventListener("click", () => {
+    clearAuth();
+    setStatus("Logged out");
+    setAuthHint("Reload (or click Refresh) to sign in again.");
+  });
+
+  el("autoRefresh").addEventListener("change", startAutoRefresh);
+  el("refreshInterval").addEventListener("change", startAutoRefresh);
+
+  const url = new URL(window.location.href);
+  const oauthError = url.searchParams.get("error");
+  const code = url.searchParams.get("code");
+
+  try {
+    if (oauthError) throw new Error(`OAuth error: ${oauthError}`);
+
+    // If we returned from Genesys with a code, redeem it for an access token
+    if (code) {
+      setStatus("Completing sign-in…");
+      await exchangeCodeForToken(code);
+    }
+
+    // If we still don’t have a token, begin the OAuth login
+    if (!getToken()) {
+      setStatus("Redirecting to sign-in…");
+      setAuthHint(`Register this redirect URI in Genesys: ${redirectUri()}`);
+      await startLogin();
+      return;
+    }
+
+    await loadConversations();
+    startAutoRefresh();
+    updateExpandButtonVisibility();
+  } catch (e) {
+    // If we're already redirecting for auth, don't overwrite the UX.
+    if (authRedirectInProgress || e?.isAuthRedirect) return;
+
+    console.error(e);
+    setStatus("Authentication required");
+    setAuthHint(e.message || String(e));
+  }
+}
+
+window.addEventListener("load", init);
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
